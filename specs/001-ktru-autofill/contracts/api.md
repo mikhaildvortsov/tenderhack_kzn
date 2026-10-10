@@ -60,7 +60,7 @@ interface Recommendation {
   id: string; kind: "add" | "clarify" | "fix";
   characteristic: string | null;
   message: string;                    // "Уточните длину рукоятки"
-  options: string[];                  // варианты значений
+  options: string[];                  // варианты значений; для kind="add" и characteristic=null — названия недостающих характеристик
   expected_remaining: number | null;
 }
 interface AnalyzeResponse {

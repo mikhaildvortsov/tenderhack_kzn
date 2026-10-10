@@ -79,7 +79,9 @@ export default function IssuesPanel({ data, text, onReplace, onIgnore, onAppend 
                 <div className="chips" role="group" aria-label={`Варианты: ${r.message}`}>
                   {r.options.map((o) => (
                     <button type="button" key={o} className="chip chip-btn"
-                      onClick={() => onAppend(r.characteristic ? `, ${r.characteristic.toLowerCase()} ${o}` : (text.trim() ? `, ${o.toLowerCase()}` : o))}>
+                      onClick={() => onAppend(r.characteristic ? `, ${r.characteristic.toLowerCase()} ${o}`
+                        : r.kind === 'add' ? `, ${o.toLowerCase()} `
+                        : (text.trim() ? `, ${o.toLowerCase()}` : o))}>
                       + {o}
                     </button>
                   ))}
