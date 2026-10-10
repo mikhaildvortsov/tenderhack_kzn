@@ -32,7 +32,7 @@ export default function App() {
 
   useEffect(() => {
     detectMode().then(setMode);
-    getExamples().then((e) => e.length && setExamples(e.slice(0, 6)));
+    getExamples().then((e) => e.length && setExamples(e.slice(0, 14)));
   }, []);
 
   const overridden = useMemo(() => new Set(state.overrides.map((o) => o.name)), [state.overrides]);
