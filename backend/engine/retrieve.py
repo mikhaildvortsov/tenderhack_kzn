@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 from rapidfuzz import fuzz
@@ -12,6 +13,7 @@ CATEGORY_NAMES = {"clothing": "Одежда и обувь", "furniture": "Меб
 TOP_K = 200
 W_BM25, W_NAME, W_HEAD = 0.35, 0.45, 0.2
 _CACHE: dict[int, dict] = {}
+CONTAINERS = {"набор", "комплект", "упаковка", "коробка", "кейс", "футляр", "чехол"}
 
 
 @dataclass
@@ -41,8 +43,12 @@ def prep(index: KtruIndex) -> dict:
     return c
 
 
-def retrieve(index: KtruIndex, q_lemmas: list[str]) -> Retrieved:
+def retrieve(index: KtruIndex, q_lemmas: list[str], head: Optional[str] = None, obj: Optional[str] = None) -> Retrieved:
+    """head: first noun of the query («чайник»), obj: its genitive complement («набор отвёрток» → «отвертка»).
+    Query coverage gate: if the head (or its complement) is not explained by any candidate name, the match is weak
+    (the good is most likely absent from KTRU)."""
     c = prep(index)
+    q_head, q_obj = head, obj
     n = len(c["codes"])
     if not q_lemmas:
         return Retrieved("unknown", 0.0, n, n, [], 0, 0)
@@ -85,5 +91,13 @@ def retrieve(index: KtruIndex, q_lemmas: list[str]) -> Retrieved:
         kept = [x for x in pool if x[1] >= 0.5 * top]
     kept = kept[:TOP_K]
     ranked = [(c["codes"][i], round(s, 4), round(b, 4)) for i, s, b, _, _ in kept]
-    weak = not any(x[3] > 0 for x in pool) and max((x[4] for x in pool), default=0.0) < 0.5
+    has_head = any(x[3] > 0 for x in pool)
+    top_names = set().union(*(c["name_sets"][x[0]] for x in kept[:20])) if kept else set()
+    weak = not has_head and max((x[4] for x in pool), default=0.0) < 0.5
+    if not weak and not has_head and q_head is not None and q_head not in top_names:
+        # the product noun («бумага», «чайник») occurs nowhere in the documents of the nearest positions
+        hs = np.asarray(index.bm25.get_scores([q_head]), dtype=float)
+        weak = not any(hs[x[0]] > 0 for x in kept[:20])
+    if has_head and q_head in CONTAINERS and q_obj is not None and q_obj not in top_names:
+        weak = True   # «набор отвёрток»: «набор» matches, but no KTRU «набор» is about «отвёртки»
     return Retrieved(cat, conf, c["cat_count"].get(cat, n), n, ranked, len(kept), len(pool), weak)

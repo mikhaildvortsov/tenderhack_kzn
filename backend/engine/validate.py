@@ -102,11 +102,12 @@ def issues_for(index: KtruIndex, text: str, exts: list[Ext], cat: dict[str, Char
     if status == "resolved" and final:
         done = {e.key for e in exts}
         pos = index.positions[final]
-        for c in pos.chars:
-            if c.required and c.norm_name not in done and len(c.values) > 1:
-                out.append(Issue(
-                    id=f"missing_required:{c.name}", type="missing_required", severity="warning", span=None,
-                    message=f"Не указана обязательная характеристика «{c.name}»",
-                    reason=f"В позиции КТРУ {pos.code} «{pos.name}» характеристика «{c.name}» обязательна для заполнения.",
-                    suggestion=None))
+        miss = [c.name for c in pos.chars if c.required and c.norm_name not in done and len(c.values) > 1]
+        if miss:
+            out.append(Issue(
+                id=f"missing_required:{pos.code}", type="missing_required", severity="warning", span=None,
+                message=f"Не указаны обязательные характеристики ({len(miss)}): " + ", ".join(miss),
+                reason=f"В позиции КТРУ {pos.code} «{pos.name}» эти характеристики обязательны для заполнения; "
+                       f"значения выберите из перечня КТРУ.",
+                suggestion=None))
     return out

@@ -34,39 +34,45 @@ def clarify(index: KtruIndex, alive: list[str], exts: list[Ext]) -> list[Recomme
             message=f"Уточните вид товара: подходят {len(names)} наименований КТРУ",
             options=[n for n, _ in names.most_common(MAX_OPTIONS)], expected_remaining=_expected(names.values())))
     done = {e.key for e in exts}
-    sigs: dict[str, dict[str, tuple]] = {}
-    meta: dict[str, tuple[str, bool]] = {}
-    for code in alive:
+    # same-name positions first: the name choice is a separate question (clarify:name)
+    top_name = index.positions[alive[0]].name
+    grp = [c for c in alive if index.positions[c].name == top_name]
+    pool = grp if len(grp) >= 2 else alive
+    sigs: dict[str, dict[str, set]] = {}
+    meta: dict[str, list] = {}
+    for code in pool:
         for c in index.positions[code].chars:
             if c.norm_name in done:
                 continue
             u = char_unit(index, c)
             if c.type == 2 and u is None:
                 continue  # unitless numeric codes (noise in KTRU) are not useful questions
-            sigs.setdefault(c.norm_name, {})[code] = tuple(sorted(U.fmt_value(v, u) for v in c.values))
-            if c.norm_name not in meta:
-                meta[c.norm_name] = (c.name, c.required)
+            sigs.setdefault(c.norm_name, {})[code] = {U.fmt_value(v, u) for v in c.values}
+            m = meta.setdefault(c.norm_name, [c.name, c.required, True])
+            m[1] = m[1] or c.required
+            m[2] = m[2] and len(c.values) == 1
     scored = []
-    N = len(alive)
+    N = len(pool)
     for key, by_code in sigs.items():
-        groups = Counter(by_code.get(code, ("—",)) for code in alive)
-        if len(groups) < 2:
+        cnt: Counter = Counter()
+        for code in pool:
+            vals = by_code.get(code)
+            for o in ({o for s_ in by_code.values() for o in s_} if vals is None else vals):
+                cnt[o] += 1
+        options = [o for o in cnt if o]
+        if len(options) < 2 or all(cnt[o] >= N for o in options):
             continue
-        h = _entropy(groups.values())
-        opt_cnt: Counter = Counter()
-        for code, sig in by_code.items():
-            opt_cnt.update(set(sig))
-        options = [o for o, _ in opt_cnt.most_common(MAX_OPTIONS) if o]
-        if not options:
-            continue
-        exp = round(sum(opt_cnt[o] for o in options) / len(options)) if options else N
-        name, req = meta[key]
-        scored.append((h + (0.1 if req else 0.0), key, name, options, max(1, min(exp, N))))
-    scored.sort(key=lambda x: -x[0])
+        # expected number of positions left after the user picks one of the values
+        exp = sum(cnt[o] for o in options) / len(options)
+        name, req, fixed = meta[key]
+        options.sort(key=lambda o: (cnt[o], o))
+        scored.append(((round(exp, 3), not fixed, not req), key, name, options[:MAX_OPTIONS], max(1, min(round(exp), N))))
+    scored.sort(key=lambda x: x[0])
     for _, key, name, options, exp in scored[: MAX_RECS - len(recs)]:
+        msg = (f"Уточните «{name}» — значение однозначно определит позицию КТРУ" if exp <= 1 else
+               f"Уточните «{name}» — останется ≈{exp} из {N} позиций «{top_name}»")
         recs.append(Recommendation(id=f"clarify:{key}", kind="clarify", characteristic=name,
-                                   message=f"Уточните «{name}» — это сильнее всего сузит выбор",
-                                   options=options, expected_remaining=exp))
+                                   message=msg, options=options, expected_remaining=exp))
     if not recs:
         codes = alive[:MAX_OPTIONS]
         recs.append(Recommendation(
@@ -100,15 +106,19 @@ def fixes(index: KtruIndex, exts: list[Ext], has_candidates: bool, cat: dict[str
 
 def additions(index: KtruIndex, code: str, exts: list[Ext]) -> list[Recommendation]:
     done = {e.key for e in exts}
-    recs = []
-    for c in index.positions[code].chars:
-        if c.required and c.norm_name not in done and len(c.values) > 1:
-            u = char_unit(index, c)
-            recs.append(Recommendation(id=f"add:{c.norm_name}", kind="add", characteristic=c.name,
-                                       message=f"Укажите обязательную характеристику «{c.name}»",
-                                       options=[U.fmt_value(v, u) for v in c.values][:MAX_OPTIONS],
-                                       expected_remaining=1))
-    return recs[:MAX_RECS]
+    miss = [c for c in index.positions[code].chars if c.required and c.norm_name not in done and len(c.values) > 1]
+    if not miss:
+        return []
+    if len(miss) == 1:
+        c = miss[0]
+        u = char_unit(index, c)
+        return [Recommendation(id=f"add:{c.norm_name}", kind="add", characteristic=c.name,
+                               message=f"Укажите обязательную характеристику «{c.name}»",
+                               options=[U.fmt_value(v, u) for v in c.values][:MAX_OPTIONS], expected_remaining=1)]
+    return [Recommendation(id="add:required", kind="add", characteristic=None,
+                           message=f"Укажите обязательные характеристики позиции КТРУ {code} ({len(miss)}): "
+                                   + ", ".join(c.name for c in miss),
+                           options=[c.name for c in miss], expected_remaining=1)]
 
 
 def empty() -> list[Recommendation]:

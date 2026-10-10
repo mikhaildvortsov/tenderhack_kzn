@@ -116,6 +116,8 @@ def _unit_at(index: KtruIndex, toks, j: int, text: str):
     n = len(toks)
     if j >= n or toks[j].kind == "num":
         return None, j, None
+    if j > 0 and any(ch in text[toks[j - 1].end:toks[j].start] for ch in ",;"):
+        return None, j, None  # «сорт 1, размер …»: a unit never follows the number across a comma
     m = symbol_map(index)
     best = None
     for k in range(j, min(j + 3, n)):

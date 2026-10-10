@@ -14,6 +14,7 @@ from engine.text import norm
 
 GENERIC = {"наличие", "тип", "вид", "для", "с", "в", "по", "и", "или", "количество"}
 YES, NO = "да", "нет"
+YES_W, NO_W = {"да", "есть", "имеется"}, {"нет", "отсутствует", "отсутствуют"}
 DIM_ORDER = [("длина",), ("ширина", "глубина"), ("высота",)]
 
 
@@ -28,6 +29,7 @@ class CharInfo:
     syn_sets: list = field(default_factory=list)
     yes_no: bool = False
     required: bool = False
+    name_lemmas: frozenset = frozenset()   # all lemmas of the char name (incl. product head words)
 
 
 @dataclass
@@ -55,9 +57,9 @@ class Ext:
     def value_str(self) -> Optional[str]:
         if self.kind == "qualitative":
             return self.text
-        if self.unit is None or self.error == "unit_mismatch":
+        if self.error == "unit_mismatch":
             return U.fmt_num(self.lo if self.lo is not None else self.hi)
-        f = self.unit.factor
+        f = self.unit.factor if self.unit is not None else 1.0
         lo = None if self.lo is None else self.lo / f
         hi = None if self.hi is None else self.hi / f
         if lo is not None and hi is not None and abs(lo - hi) < 1e-12:
@@ -87,7 +89,8 @@ def catalog(index: KtruIndex, codes: list[str]) -> dict[str, CharInfo]:
                 syns = [frozenset(s.split()) - GENERIC - heads for s in index.char_synonyms.get(c.norm_name, ()) if s]
                 yn = not quant and {(v.text or "").strip().lower() for v in c.values} <= {YES, NO} and bool(c.values)
                 ci = cat[c.norm_name] = CharInfo(c.norm_name, c.name, quant, char_unit(index, c) if quant else None,
-                                                 key_lemmas=kl, syn_sets=[s for s in syns if s], yes_no=yn)
+                                                 key_lemmas=kl, syn_sets=[s for s in syns if s], yes_no=yn,
+                                                 name_lemmas=frozenset(c.norm_name.split()) - GENERIC)
             ci.per_pos[code] = c
             ci.required = ci.required or c.required
     return cat
@@ -99,13 +102,59 @@ def _mentions(ci: CharInfo, words: list[tuple[int, str]]) -> tuple[float, int, i
     for ks in [ci.key_lemmas, *ci.syn_sets]:
         if not ks:
             continue
-        hits = [i for i, lem in words if lem in ks]
+        hits = [(i, lem) for i, lem in words if lem in ks]
         if not hits:
             continue
-        score = len({lem for i, lem in words if lem in ks}) / len(ks)
-        if score > best[0]:
-            best = (score, min(hits), max(hits))
+        # compact cluster: name words must stand together («натуральный мех», not «мех … натуральный»)
+        w = len(ks) + 1
+        for j, (b, _) in enumerate(hits):
+            cl = [(i, lem) for i, lem in hits[: j + 1] if b - i <= w]
+            score = len({lem for _, lem in cl}) / len(ks)
+            if score > best[0]:
+                best = (score, cl[0][0], b)
     return best
+
+
+def _adjacent(ci: CharInfo, toks, q, lo_bound: int) -> int:
+    """How many words of the full char name stand immediately before the number («длина лезвий ножниц 74 мм»)."""
+    n, i = 0, q.i0 - 1
+    while i >= max(lo_bound, 0) and i >= q.i0 - 8:
+        t = toks[i]
+        if t.kind == "word":
+            if t.lemma not in ci.name_lemmas:
+                break
+            n += 1
+        elif t.kind in ("num", "lat"):
+            break
+        i -= 1
+    return n
+
+
+SIZE_SKIP = ("штихмасс", "обув", "голов", "перчат", "кист", "противогаз", "топорищ")
+
+
+def _hits_raw(ci: CharInfo, lo: Optional[float], hi: Optional[float]) -> bool:
+    for c in ci.per_pos.values():
+        for v in c.values:
+            if v.vtype == "quality":
+                if _num_eq(v.text, lo, hi):
+                    return True
+            elif U.interval_hits(lo, hi, v):
+                return True
+    return False
+
+
+def _size_alt(ci: CharInfo, q) -> Optional[tuple[float, float]]:
+    """Clothing «размер 96-100» / «120-124/182-188» is the chest girth in cm; Russian size = girth / 2."""
+    if "размер" not in ci.key.split() or any(w in ci.key for w in SIZE_SKIP) or q.lo is None:
+        return None
+    if q.unit is not None and q.unit.dimension != "length":
+        return None
+    hi = q.hi if q.hi is not None else q.lo
+    if not (70 <= q.lo <= hi <= 170) or _hits_raw(ci, q.lo, hi):
+        return None
+    alt = (q.lo / 2, hi / 2)
+    return alt if _hits_raw(ci, *alt) else None
 
 
 def _local(ci: CharInfo, words: list[tuple[int, str]], q, lo_bound: int) -> tuple[float, int, int]:
@@ -171,9 +220,12 @@ def _allowed_desc(index: KtruIndex, c: CharRec, unit: Optional[OkeiUnit], limit:
 
 
 def _quant_ext(index: KtruIndex, ci: CharInfo, q: U.Quantity, order: list[str], conf: float, how: str,
-               value: Optional[float] = None, raw_value: Optional[str] = None) -> Ext:
+               value: Optional[float] = None, raw_value: Optional[str] = None,
+               rng: Optional[tuple[float, float]] = None) -> Ext:
     lo = value if value is not None else q.lo
     hi = value if value is not None else q.hi
+    if rng is not None:
+        lo, hi = rng
     raw_value = raw_value or q.raw_value
     ku = ci.unit
     code = _first_pos_with(ci, order)
@@ -273,7 +325,8 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
                     else:
                         q.used = True
                 continue
-            if not ci.quant and not any(_num_eq(v.text, q.lo, q.hi) for c in ci.per_pos.values() for v in c.values):
+            if not ci.quant and not any(_num_eq(v.text, q.lo, q.hi) for c in ci.per_pos.values() for v in c.values) \
+                    and _size_alt(ci, q) is None:
                 continue
             before = b < q.i0
             dim_ok = q.unit is None or not ci.quant or (ci.unit is not None and ci.unit.dimension == q.unit.dimension) \
@@ -282,23 +335,33 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
                 continue  # incompatible unit only binds to an explicit name right before the number
             if not ci.quant and q.unit is not None and q.unit.dimension != "size":
                 continue
-            pref = (sc >= 1 and before and dist <= 2, dim_ok, before, before or dist <= 1, sc, -dist, ci.quant == (q.unit is not None), len(ci.per_pos))
+            pref = (sc >= 1 and before and dist <= 2, dim_ok, _adjacent(ci, nr.toks, q, lo_bound), before,
+                    before or dist <= 1, sc, -dist, ci.quant == (q.unit is not None), len(ci.per_pos))
             if best is None or pref > best:
                 best, best_key = pref, k
         if q.used:
             continue
         if best_key is not None:
             ci = cat[best_key]
+            alt = _size_alt(ci, q)
+            alt_note = (f"«размер {q.raw_value}» — обхват груди в см; российский размер = обхват / 2 = "
+                        f"{U.fmt_num(alt[0])}–{U.fmt_num(alt[1])}") if alt else ""
             if ci.quant:
-                exts.append(_quant_ext(index, ci, q, order, round(0.75 + 0.2 * best[0], 2),
-                                       f"название характеристики «{ci.name}» рядом с числом"))
+                e = _quant_ext(index, ci, q, order, round(0.75 + 0.2 * best[0], 2),
+                               f"название характеристики «{ci.name}» рядом с числом", rng=alt)
+                if alt:
+                    e.status, e.reason = "corrected", alt_note + "; " + e.reason
+                exts.append(e)
             else:
-                txt = U.fmt_num(q.lo) if q.point is not None else q.raw_value
-                hit = next((v.text for c in ci.per_pos.values() for v in c.values if _num_eq(v.text, q.lo, q.hi)), txt)
-                exts.append(Ext(ci.key, ci.name, "qualitative", q.raw_value, q.raw_unit, q.start, q.end, "ok", 0.85,
+                lo, hi = alt or (q.lo, q.hi)
+                point = lo is not None and hi is not None and abs(lo - hi) < 1e-12
+                txt = U.fmt_num(lo) if point else (f"{U.fmt_num(lo)}–{U.fmt_num(hi)}" if alt else q.raw_value)
+                hit = next((v.text for c in ci.per_pos.values() for v in c.values if _num_eq(v.text, lo, hi)), txt)
+                exts.append(Ext(ci.key, ci.name, "qualitative", q.raw_value, q.raw_unit, q.start, q.end,
+                                "corrected" if alt else "ok", 0.85,
+                                (alt_note + "; " if alt else "") +
                                 f"значение «{q.raw_value}» указано рядом с названием «{ci.name}»; значение КТРУ «{hit}»",
-                                text=hit if q.point is not None else txt, norm_text=hit if q.point is not None else txt,
-                                lo=q.lo, hi=q.hi))
+                                text=hit if point else txt, norm_text=hit if point else txt, lo=lo, hi=hi))
             bound.add(best_key)
             q.used = True
             continue
@@ -337,8 +400,20 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
     # 3) qualitative values by lemma n-grams
     seq = [(i, lem) for i, lem in words if i not in used_tok]
     heads_q = {index.positions[c].norm_name.split()[0] for c in order[:50] if index.positions[c].norm_name}
+    # words already explained by the position name or by a mentioned characteristic name are not values
+    name_lem = set(index.positions[order[0]].norm_name.split()) if order else set()
+    name_tok: dict[int, set[str]] = {}
+    for k2, (sc2, a2, b2) in mention.items():
+        if sc2 >= 1:
+            ks2 = cat[k2].key_lemmas | cat[k2].name_lemmas
+            for i, lem in words:
+                if a2 <= i <= b2 and lem in ks2:
+                    name_tok.setdefault(i, set()).add(k2)
     lem_only = [lem for _, lem in seq]
     claimed: dict[tuple[int, int], list[Ext]] = {}
+    def named(s0: int, L0: int, key: str) -> bool:
+        return all(name_tok.get(seq[s0 + j][0], set()) - {key} for j in range(L0))
+
     for k, ci in cat.items():
         if ci.quant or k in bound or ci.yes_no:
             continue
@@ -354,7 +429,7 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
             if not L or L > len(lem_only):
                 continue
             for s in range(len(lem_only) - L + 1):
-                if lem_only[s:s + L] == parts:
+                if lem_only[s:s + L] == parts and not named(s, L, k):
                     cand = (L, nt, txt, s)
                     if best is None or cand[0] > best[0]:
                         best = cand
@@ -364,7 +439,7 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
                 if " " in nt or len(nt) < 5 or nt.isdigit():
                     continue
                 for s, lem in enumerate(lem_only):
-                    if len(lem) >= 5 and fuzz.ratio(lem, nt) >= 88:
+                    if len(lem) >= 5 and fuzz.ratio(lem, nt) >= 88 and not named(s, 1, k):
                         best = (1, nt, txt, s)
                         break
                 if best:
@@ -375,7 +450,7 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
         else:
             fuzzy = False
         L, nt, txt, s = best
-        if nt.isdigit() or set(nt.split()) <= heads_q:
+        if nt.isdigit() or set(nt.split()) <= heads_q or set(nt.split()) <= name_lem:
             continue
         t0, t1 = nr.toks[seq[s][0]], nr.toks[seq[s + L - 1][0]]
         sc = mention[k][0]
@@ -428,13 +503,22 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
         sc, a, b = mention[k]
         if sc < 1:
             continue
+        if any(k2 in bound and k2 != k and not cat[k2].yes_no and ci.key_lemmas <= cat[k2].name_lemmas and mention[k2][1] <= b
+               and a <= mention[k2][2] for k2 in cat):
+            continue  # «количество выдвижных ящиков 12» is not «наличие выдвижных ящиков»
         neg = a > 0 and nr.toks[a - 1].norm == "без"
         t0 = nr.toks[a - 1] if neg else nr.toks[a]
         t1 = nr.toks[b]
+        j = b + 1
+        while j < len(nr.toks) and nr.toks[j].kind == "sym" and j <= b + 2:
+            j += 1
+        how = "отрицается предлогом «без»" if neg else "упомянут в запросе"
+        if j < len(nr.toks) and nr.toks[j].norm in YES_W | NO_W:
+            neg, t1 = nr.toks[j].norm in NO_W, nr.toks[j]
+            how = "значение указано явно"
         val = "Нет" if neg else "Да"
         exts.append(Ext(k, ci.name, "qualitative", nr.text[t0.start:t1.end], None, t0.start, t1.end, "ok", 0.8,
-                        f"«{nr.text[t0.start:t1.end]}» → {val}: признак «{ci.name}» "
-                        f"{'отрицается предлогом «без»' if neg else 'упомянут в запросе'}",
+                        f"«{nr.text[t0.start:t1.end]}» → {val}: признак «{ci.name}» {how}",
                         text=val, norm_text=val.lower()))
         bound.add(k)
     return exts, unbound, contradictions

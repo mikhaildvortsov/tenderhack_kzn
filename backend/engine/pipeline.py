@@ -52,6 +52,22 @@ def _char_out(index: KtruIndex, e: X.Ext, ref: Optional[str], text: str) -> Extr
         required=req, allowed_values=allowed)
 
 
+def _head_phrase(nr, qtok: set, text: str) -> tuple[Optional[str], Optional[str]]:
+    """First noun of the product phrase and its adjacent genitive noun complement («набор отвёрток»)."""
+    ws = [tk for i, tk in enumerate(nr.toks) if tk.kind == "word" and i not in qtok and len(tk.norm) > 1]
+    for j, tk in enumerate(ws[:4]):
+        p = _morph.parse(tk.norm)[0]
+        if p.tag.POS != "NOUN":
+            continue
+        obj = None
+        if j + 1 < len(ws) and text[tk.end:ws[j + 1].start].strip() == "":
+            p2 = _morph.parse(ws[j + 1].norm)[0]
+            if p2.tag.POS == "NOUN" and p2.tag.case == "gent":
+                obj = ws[j + 1].lemma
+        return tk.lemma, obj
+    return None, None
+
+
 def analyze_steps(req: AnalyzeRequest, index: KtruIndex) -> Iterator[Union[NarrowingStep, AnalyzeResponse]]:
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
@@ -85,7 +101,8 @@ def analyze_steps(req: AnalyzeRequest, index: KtruIndex) -> Iterator[Union[Narro
             issues=list(nr.issues), recommendations=R.empty()))
         return
 
-    r = retrieve(index, q_lemmas)
+    head, obj = _head_phrase(nr, qtok, text)
+    r = retrieve(index, q_lemmas, head, obj)
     t = mark("retrieve", t)
     steps: list[NarrowingStep] = []
     st = N.category_step(r)
