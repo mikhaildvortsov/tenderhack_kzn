@@ -80,6 +80,7 @@ export default function IssuesPanel({ data, text, onReplace, onIgnore, onAppend 
                   {r.options.map((o) => (
                     <button type="button" key={o} className="chip chip-btn"
                       onClick={() => onAppend(r.characteristic ? `, ${r.characteristic.toLowerCase()} ${o}`
+                        : r.id.startsWith('clarify:value:') ? `, ${o.toLowerCase()} ${r.id.slice('clarify:value:'.length)}`
                         : r.kind === 'add' ? `, ${o.toLowerCase()} `
                         : (text.trim() ? `, ${o.toLowerCase()}` : o))}>
                       + {o}

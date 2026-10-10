@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import os
 import pickle
+import re
 import threading
 from pathlib import Path
 from typing import Optional, Union
 
-from engine.models import KtruIndex, ValueRec
+from engine.models import CharRec, KtruIndex, ValueRec
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX_PATH = REPO / "data" / "build" / "index.pkl"
@@ -16,6 +17,8 @@ _cache: dict[str, KtruIndex] = {}
 _lock = threading.Lock()
 
 _OPS = {"greater": ">", "greaterOrEqual": "≥", "less": "<", "lessOrEqual": "≤"}
+CODE_NOTE = " (код значения КТРУ)"
+_CODE_NAME_RE = re.compile(r"^(тип|исполнени|класс|сорт|уровень|конус)")
 
 
 def index_path(path: Union[str, Path, None] = None) -> Path:
@@ -51,8 +54,16 @@ def _unit_symbol(v: ValueRec) -> Optional[str]:
     return v.unit_name
 
 
-def format_value(v: ValueRec) -> str:
-    """'Кулачок' | '100–150 мм' | '< 100 мм' | '≥ 2.5 кг' | '1.5 кг'."""
+def is_code_char(c: CharRec) -> bool:
+    """Numeric KTRU characteristic whose unitless values are codes («Тип исполнения рукоятки: 1, 2, 3»)."""
+    return c.type == 2 and bool(_CODE_NAME_RE.match(c.name.strip().lower())) and all(
+        not v.unit_code and not v.unit_name for v in c.values)
+
+
+def format_value(v: ValueRec, code: bool = False) -> str:
+    """'Кулачок' | '100–150 мм' | '< 100 мм' | '≥ 2.5 кг' | '1.5 кг' | '1 (код значения КТРУ)' (code=True)."""
+    if code and v.vtype != "quality":
+        return format_value(v) + CODE_NOTE
     unit = _unit_symbol(v)
     suffix = f" {unit}" if unit else ""
     if v.vtype == "quality":
@@ -85,7 +96,7 @@ def position_detail(index: KtruIndex, code: str):
             KtruCharacteristic(
                 code=c.code, name=c.name, type=c.type, kind=c.kind, required=c.required,
                 values=[KtruValue(text=v.text, min=v.min, min_op=v.min_op, max=v.max, max_op=v.max_op,
-                                  value=v.value, unit=_unit_symbol(v), display=format_value(v))
+                                  value=v.value, unit=_unit_symbol(v), display=format_value(v, is_code_char(c)))
                         for v in c.values],
             )
             for c in p.chars

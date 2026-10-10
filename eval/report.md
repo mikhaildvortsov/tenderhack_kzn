@@ -6,34 +6,34 @@ Cases: 749, crashes: 0
 
 | group | n | category_acc | top1 | top3 | status_acc | clean_no_false_error | injected_recall | ambiguous_with_rec | real_resolved_rate | real_false_resolved | extract P/R/F1 | p50/p95/max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ALL | 749 | 97.7 | 95.2 | 97.3 | 99.8 | 98.7 | 92.8 | 100.0 | 0.7 | 0.0 | 76.7/83.5/80.0 | 2.2/6.4/43.7 |
+| ALL | 749 | 97.7 | 95.2 | 97.3 | 99.8 | 98.7 | 92.8 | 100.0 | 0.7 | 0.0 | 76.7/83.5/80.0 | 2.2/6.1/44.1 |
 
 ## By category
 
 | group | n | category_acc | top1 | top3 | status_acc | clean_no_false_error | injected_recall | ambiguous_with_rec | real_resolved_rate | real_false_resolved | extract P/R/F1 | p50/p95/max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| clothing | 250 | 98.8 | 91.5 | 96.0 | 100.0 | 100.0 | 96.9 | 100.0 | 0.0 | 0.0 | 75.8/84.0/79.7 | 3.5/8.1/43.7 |
-| furniture | 249 | 97.6 | 97.5 | 98.0 | 100.0 | 100.0 | 87.5 | 100.0 | 2.0 | 0.0 | 76.5/83.8/80.0 | 2.4/5.6/8.7 |
-| tools | 250 | 96.8 | 96.5 | 98.0 | 99.4 | 96.0 | 93.8 | 100.0 | 0.0 | 0.0 | 78.0/82.7/80.2 | 1.3/4.2/7.1 |
+| clothing | 250 | 98.8 | 91.5 | 96.0 | 100.0 | 100.0 | 96.9 | 100.0 | 0.0 | 0.0 | 75.8/84.0/79.7 | 3.4/7.5/44.1 |
+| furniture | 249 | 97.6 | 97.5 | 98.0 | 100.0 | 100.0 | 87.5 | 100.0 | 2.0 | 0.0 | 76.5/83.8/80.0 | 2.4/5.8/8.8 |
+| tools | 250 | 96.8 | 96.5 | 98.0 | 99.4 | 96.0 | 93.8 | 100.0 | 0.0 | 0.0 | 78.0/82.7/80.2 | 1.4/4.4/7.4 |
 
 ## By kind
 
 | group | n | category_acc | top1 | top3 | status_acc | clean_no_false_error | injected_recall | ambiguous_with_rec | real_resolved_rate | real_false_resolved | extract P/R/F1 | p50/p95/max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| real_ste | 150 | 91.3 | None | None | None | None | None | 100.0 | 0.7 | 0.0 | 11.0/21.6/14.6 | 2.3/8.1/43.7 |
-| synthetic_clean | 300 | 99.7 | 97.0 | 98.7 | 100.0 | 98.7 | None | 100.0 | None | None | 94.4/87.2/90.6 | 3.3/6.7/9.6 |
-| synthetic_noisy | 299 | 99.0 | 93.3 | 96.0 | 99.5 | None | 92.8 | 100.0 | None | None | 74.9/93.6/83.2 | 1.6/4.5/7.2 |
+| real_ste | 150 | 91.3 | None | None | None | None | None | 100.0 | 0.7 | 0.0 | 11.0/21.6/14.6 | 1.9/5.0/44.1 |
+| synthetic_clean | 300 | 99.7 | 97.0 | 98.7 | 100.0 | 98.7 | None | 100.0 | None | None | 94.4/87.2/90.6 | 3.4/6.8/9.5 |
+| synthetic_noisy | 299 | 99.0 | 93.3 | 96.0 | 99.5 | None | 92.8 | 100.0 | None | None | 74.9/93.6/83.2 | 1.7/4.7/7.6 |
 
 ## Noisy subtypes
 
 | group | n | category_acc | top1 | top3 | status_acc | clean_no_false_error | injected_recall | ambiguous_with_rec | real_resolved_rate | real_false_resolved | extract P/R/F1 | p50/p95/max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| typo | 60 | 98.3 | 95.0 | 96.7 | 98.3 | None | 96.7 | 100.0 | None | None | 97.5/91.7/94.5 | 2.2/5.0/7.0 |
-| layout | 45 | 97.8 | 97.8 | 97.8 | 100.0 | None | 95.6 | 100.0 | None | None | 94.0/90.0/92.0 | 2.1/5.8/7.2 |
-| units | 60 | 100.0 | 100.0 | 100.0 | 100.0 | None | None | 100.0 | None | None | 97.8/94.6/96.1 | 1.5/4.1/5.8 |
-| out_of_range | 44 | 100.0 | 75.0 | 88.6 | None | None | 86.4 | 100.0 | None | None | 36.8/100.0/53.8 | 1.5/3.6/4.6 |
-| unit_mismatch | 45 | 97.8 | 88.9 | 91.1 | None | None | 91.1 | 100.0 | None | None | 38.2/100.0/55.3 | 1.5/4.2/4.9 |
-| incomplete | 45 | 100.0 | 100.0 | 100.0 | 100.0 | None | None | 100.0 | None | None | None/None/0 | 0.9/3.5/4.3 |
+| typo | 60 | 98.3 | 95.0 | 96.7 | 98.3 | None | 96.7 | 100.0 | None | None | 97.5/91.7/94.5 | 2.2/5.4/7.5 |
+| layout | 45 | 97.8 | 97.8 | 97.8 | 100.0 | None | 95.6 | 100.0 | None | None | 94.0/90.0/92.0 | 2.2/6.1/7.6 |
+| units | 60 | 100.0 | 100.0 | 100.0 | 100.0 | None | None | 100.0 | None | None | 97.8/94.6/96.1 | 1.6/4.2/5.9 |
+| out_of_range | 44 | 100.0 | 75.0 | 88.6 | None | None | 86.4 | 100.0 | None | None | 36.8/100.0/53.8 | 1.5/3.7/4.7 |
+| unit_mismatch | 45 | 97.8 | 88.9 | 91.1 | None | None | 91.1 | 100.0 | None | None | 38.2/100.0/55.3 | 1.6/3.9/4.9 |
+| incomplete | 45 | 100.0 | 100.0 | 100.0 | 100.0 | None | None | 100.0 | None | None | None/None/0 | 0.9/3.4/4.1 |
 
 ## Issue types (non-real cases)
 
@@ -74,7 +74,7 @@ SC-001 top1>=90, top3>=97; SC-002 extract recall>=85; SC-003 injected_recall>=90
 - `real-clothing-035` (ste_id=38806283)
   - text: Молния Спираль юбочная н/р BLITZ G003A Т3 замок-автомат 18 см №300 светло-серый
   - expected: cat=clothing code=None status=None issues=[] chars={}
-  - got: status=not_found cat=tools top=['25.73.60.190-00000015', '25.73.60.190-00000016', '25.73.40.290-00000013'] issues=['category_mismatch'] rec=1 chars: 
+  - got: status=not_found cat=tools top=['25.73.60.190-00000015', '25.73.60.190-00000016', '25.73.40.290-00000013'] issues=['category_mismatch'] rec=2 chars: 
 - `real-clothing-036` (ste_id=36059113)
   - text: Комплект подростковый "Термобелье" для девочки 52/54, цвет: Черный, вид продукции: Товары
   - expected: cat=clothing code=None status=None issues=[] chars={'Цвет': 'Черный', 'Вид продукции': 'Товары'}

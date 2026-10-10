@@ -121,6 +121,25 @@ def additions(index: KtruIndex, code: str, exts: list[Ext]) -> list[Recommendati
                            options=[c.name for c in miss], expected_remaining=1)]
 
 
+def ambiguous_values(quantities, exts: list[Ext]) -> list[Recommendation]:
+    """A number with a unit that fits several candidate characteristics equally: ask which one is meant."""
+    done = {(e.raw_value, e.raw_unit) for e in exts}
+    return [Recommendation(id=f"clarify:value:{q.display()}", kind="clarify", characteristic=None,
+                           message=f"Уточните, к какой характеристике относится «{q.display()}»: подходят "
+                                   + ", ".join(q.choices[:MAX_OPTIONS]),
+                           options=q.choices[:MAX_OPTIONS], expected_remaining=None)
+            for q in quantities if len(q.choices) >= 2 and not q.used and (q.raw_value, q.raw_unit) not in done]
+
+
+def unknown_words(issues, ignored: set[str]) -> list[Recommendation]:
+    """Typo corrections rejected by the user: the word stays unknown to KTRU — say so instead of a silent result."""
+    return [Recommendation(id=f"fix:unknown_word:{i.span.text}", kind="fix", characteristic=None,
+                           message=f"Слово «{i.span.text}» не найдено в справочнике КТРУ — проверьте написание "
+                                   f"или введите другое название",
+                           options=[], expected_remaining=None)
+            for i in issues if i.type == "typo" and i.id in ignored and i.span]
+
+
 def empty() -> list[Recommendation]:
     return [Recommendation(id="add:text", kind="add", characteristic=None,
                            message="Введите наименование товара и известные характеристики, "

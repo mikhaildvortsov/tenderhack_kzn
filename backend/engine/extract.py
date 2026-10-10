@@ -388,6 +388,9 @@ def extract(index: KtruIndex, nr: NormResult, quantities: list[U.Quantity], orde
             f0, f1 = fits(ranked[0]), fits(ranked[1])
             if f0[0] > 0 and f0 > f1 and f0[1] >= 2 * f1[1]:
                 pick, conf, how = ranked[0], 0.55, "наиболее распространённая характеристика с подходящей единицей"
+            else:
+                fit = [cat[k].name for k in ranked if fits(k)[0] > 0]
+                q.choices = fit if len(fit) >= 2 else [cat[k].name for k in ranked]
         if pick:
             exts.append(_quant_ext(index, cat[pick], q, order, conf, how))
             bound.add(pick)

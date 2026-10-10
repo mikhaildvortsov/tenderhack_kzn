@@ -133,3 +133,33 @@ def test_steps_stream(idx):
 def test_issue_ids_stable(idx):
     r = run(idx, "молоток длина рукоятки 5 кг")
     assert all(i.id.startswith(i.type + ":") for i in r.issues)
+
+
+def test_mixed_products_contradiction(idx):
+    r = run(idx, "куртка мужская размер 52 и стол офисный")
+    (i,) = [i for i in r.issues if i.type == "contradiction"]
+    assert i.span.text == "стол" and "куртка" in i.message and "стол" in i.message
+    r = run(idx, "стол письменный и кресло офисное")
+    assert "contradiction" in types(r)
+    for text in ("стол письменный с тумбой", "шкаф металлический для куртки", "куртка мужская зимняя размер 52",
+                 "стол офисный 1200х600х750 мм ЛДСП"):
+        assert "contradiction" not in types(run(idx, text)), text
+
+
+def test_ambiguous_quantity_clarify(idx):
+    r = run(idx, "стол письменный 700 мм")
+    (rec,) = [x for x in r.recommendations if x.id.startswith("clarify:value:")]
+    assert rec.kind == "clarify" and rec.characteristic is None
+    assert set(rec.options) == {"Длина", "Ширина", "Высота"} and "700 мм" in rec.message
+    # after the user picks a characteristic the question disappears
+    r = run(idx, "стол письменный 700 мм, высота 700 мм")
+    assert not [x for x in r.recommendations if x.id.startswith("clarify:value:")]
+
+
+def test_rejected_typo_explained(idx):
+    r = run(idx, "молатак", ignored_issues=["typo:молатак"])
+    assert "typo" not in types(r)
+    msgs = [x.message for x in r.recommendations] + [i.message for i in r.issues]
+    assert any("молатак" in m and "не найдено в справочнике КТРУ" in m for m in msgs), msgs
+    r = run(idx, "молатак")
+    assert not any("не найдено в справочнике" in x.message for x in r.recommendations)

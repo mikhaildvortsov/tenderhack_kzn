@@ -11,6 +11,7 @@ from engine import narrow as N
 from engine import recommend as R
 from engine import units as U
 from engine import validate as V
+from engine.lexicon import CODE_NOTE, is_code_char
 from engine.models import KtruIndex
 from engine.normalize import normalize
 from engine.retrieve import CATEGORY_NAMES, retrieve
@@ -27,9 +28,12 @@ def _allowed(index: KtruIndex, code: Optional[str], key: str) -> tuple[list[str]
     if c is None:
         return [], False, None
     u = X.char_unit(index, c)
+    code = u is None and is_code_char(c)
     vals = []
     for v in c.values:
         s = U.fmt_value(v, u)
+        if s and code:
+            s += CODE_NOTE
         if s and s not in vals:
             vals.append(s)
     return vals[:MAX_ALLOWED], c.required, c
@@ -98,7 +102,7 @@ def analyze_steps(req: AnalyzeRequest, index: KtruIndex) -> Iterator[Union[Narro
         yield finish(AnalyzeResponse(
             status="empty", text=text, normalized_text=nr.normalized_text,
             category=CategoryGuess(id="unknown", name=CATEGORY_NAMES["unknown"], confidence=0.0),
-            issues=list(nr.issues), recommendations=R.empty()))
+            issues=list(nr.issues), recommendations=R.unknown_words(nr.issues, ignored) + R.empty()))
         return
 
     head, obj = _head_phrase(nr, qtok, text)
@@ -154,11 +158,12 @@ def analyze_steps(req: AnalyzeRequest, index: KtruIndex) -> Iterator[Union[Narro
                                options=near, expected_remaining=None)] + R.fixes(index, exts, True, cat)
     else:
         recs = R.fixes(index, exts, bool(order), cat)
-    recs = recs[:R.MAX_RECS]
+    recs = (R.unknown_words(nr.issues, ignored) + R.ambiguous_values(quantities, exts) + recs)[:R.MAX_RECS]
     t = mark("recommend", t)
 
     issues = list(nr.issues) + V.issues_for(index, text, exts, cat, nres.alive, unbound, contradictions, final,
                                             nres.status, bool(known), bool(order), weak)
+    issues += V.mixed_products(index, nr, qtok, text)
     # characteristics: extracted + KTRU-fixed (suggested) + missing required of the reference position
     chars = [_char_out(index, e, ref, text) for e in exts]
     if ref:

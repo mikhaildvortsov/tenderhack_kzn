@@ -7,6 +7,12 @@ from app.schemas import Issue, Span, Suggestion
 from engine import units as U
 from engine.extract import CharInfo, Ext, char_unit
 from engine.models import KtruIndex
+from engine.retrieve import CATEGORY_NAMES
+from engine.text import _morph, lemmas
+
+_HEADS: dict[int, tuple[dict[str, set[str]], set[frozenset], dict[str, list]]] = {}
+_PARTS: dict[tuple[int, str], set[str]] = {}
+_SEP = {"и", "или", "а", "также"}
 
 
 def _span(text: str, s: Optional[int], e: Optional[int]) -> Optional[Span]:
@@ -36,6 +42,79 @@ def _allowed_summary(index: KtruIndex, ci: CharInfo, codes: list[str]) -> tuple[
         return ", ".join(sorted({U.fmt_value(v, u) for c in chars for v in c.values}))[:200], pos_name
     vals = sorted({v.text for c in chars for v in c.values if v.text})
     return ", ".join(vals[:12]) + ("…" if len(vals) > 12 else ""), pos_name
+
+
+def _heads(index: KtruIndex) -> tuple[dict[str, set[str]], set[frozenset], dict[str, list]]:
+    """Head lemma of every KTRU position name → its categories; lemma sets of all names; head → positions."""
+    h = _HEADS.get(id(index))
+    if h is None:
+        cats: dict[str, set[str]] = {}
+        names: set[frozenset] = set()
+        by_head: dict[str, list] = {}
+        for p in index.positions.values():
+            ws = p.norm_name.split()
+            if ws:
+                cats.setdefault(ws[0], set()).add(p.category)
+                names.add(frozenset(ws))
+                by_head.setdefault(ws[0], []).append(p)
+        h = _HEADS[id(index)] = (cats, names, by_head)
+    return h
+
+
+def _parts(index: KtruIndex, head: str) -> set[str]:
+    """Lemmas of characteristic names/values of positions named «head …» («стол» → «тумба», «полка»)."""
+    key = (id(index), head)
+    pp = _PARTS.get(key)
+    if pp is None:
+        pp = set()
+        for p in _heads(index)[2].get(head, ()):
+            for c in p.chars:
+                pp.update(lemmas(c.name))
+                pp.update(w for v in c.values if v.text for w in lemmas(v.text))
+        _PARTS[key] = pp
+    return pp
+
+
+def mixed_products(index: KtruIndex, nr, qtok: set, text: str) -> list[Issue]:
+    """Several different products in one description («куртка мужская размер 52 и стол офисный»)."""
+    cats, names, _ = _heads(index)
+    toks = nr.toks
+    found = []  # (token index, token) of product heads that start a new noun phrase
+    for i, tk in enumerate(toks):
+        if tk.kind != "word" or i in qtok or tk.lemma not in cats:
+            continue
+        if not any(p.tag.POS == "NOUN" and p.tag.case == "nomn" for p in _morph.parse(tk.norm)):
+            continue
+        prev = [t for t in toks[max(0, i - 2):i] if t.kind == "word"]
+        if any(_morph.parse(t.norm)[0].tag.POS == "PREP" for t in prev):
+            continue  # «стол с тумбой», «шкаф для куртки» — a complement, not a second product
+        p = toks[i - 1] if i else None
+        boundary = p is None or p.norm in _SEP or p.kind == "num" or (i - 1) in qtok \
+            or any(ch in text[p.end:tk.start] for ch in ",;+")
+        found.append((tk, boundary))
+    if not found:
+        return []
+    first = found[0][0]
+    out: list[Issue] = []
+    seen = {first.lemma}
+    for tk, boundary in found[1:]:
+        if not boundary or tk.lemma in seen or any(first.lemma in n and tk.lemma in n for n in names):
+            continue
+        if any(ch in text[first.end:tk.start] for ch in ":(") or tk.lemma in _parts(index, first.lemma) \
+                or first.lemma in _parts(index, tk.lemma):
+            continue  # composition («костюм: куртка и брюки») or a part of the first product («стол, тумба»)
+        seen.add(tk.lemma)
+        c1, c2 = sorted(cats[first.lemma]), sorted(cats[tk.lemma])
+        kind = ("разных категорий КТРУ (" + ", ".join(CATEGORY_NAMES[c] for c in c1) + " и "
+                + ", ".join(CATEGORY_NAMES[c] for c in c2) + ")") if not set(c1) & set(c2) else "разных наименований КТРУ"
+        sp = Span(start=tk.start, end=tk.end, text=text[tk.start:tk.end])
+        out.append(Issue(
+            id=_iid("contradiction", sp, tk.orig), type="contradiction", severity="warning", span=sp,
+            message=f"В описании смешаны разные товары: «{first.orig}» и «{tk.orig}»",
+            reason=f"«{first.orig}» и «{tk.orig}» — товары {kind}; ни одна позиция КТРУ не содержит оба. "
+                   f"Одна карточка СТЕ описывает один товар — оставьте в описании только один.",
+            suggestion=None))
+    return out
 
 
 def issues_for(index: KtruIndex, text: str, exts: list[Ext], cat: dict[str, CharInfo], alive: list[str],

@@ -96,6 +96,7 @@ class Quantity:
     num_i: int                             # index of the (first) number token
     dims: list[float] = field(default_factory=list)   # AxBxC → [A, B, C]
     used: bool = False
+    choices: list[str] = field(default_factory=list)  # names of characteristics that fit equally well
 
     @property
     def point(self) -> Optional[float]:
