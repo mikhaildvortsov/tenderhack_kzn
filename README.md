@@ -42,3 +42,12 @@ backend/{app,engine,etl,tests}  frontend/  eval/  deploy/  data/  specs/  docs/ 
 
 ## Ограничения хакатона
 Только открытые модели и алгоритмы (BM25, rapidfuzz, pymorphy3), без внешних LLM API; всё работает офлайн.
+
+## Документация
+
+- [Архитектура](docs/architecture.md) ([схема](docs/architecture.svg))
+- [BPMN 2.0 процесс](docs/bpmn/process.bpmn) ([png](docs/bpmn/process.png), [svg](docs/bpmn/process.svg))
+- [Презентация: текст](docs/presentation/slides.md), [pptx](docs/presentation/tenderhack_ktru.pptx)
+- [Сценарий демо](docs/demo-script.md)
+- [Вопросы жюри и ответы](docs/qa-prep.md)
+- [Скриншоты UI](docs/screenshots/)
