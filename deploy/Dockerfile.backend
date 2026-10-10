@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+ENV PYTHONUNBUFFERED=1 KTRU_INDEX=/data/build/index.pkl
+WORKDIR /app
+COPY backend/pyproject.toml ./pyproject.toml
+RUN python - <<'PY' > /tmp/req.txt
+import tomllib
+print("\n".join(tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]))
+PY
+RUN pip install --no-cache-dir -r /tmp/req.txt
+COPY backend/ ./
+VOLUME /data/build
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

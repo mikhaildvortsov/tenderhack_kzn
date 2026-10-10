@@ -1,0 +1,10 @@
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+.git
+data/КТРУ
+data/Примеры выгрузок
+data/build
+docs
+specs
