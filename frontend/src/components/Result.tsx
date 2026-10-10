@@ -5,10 +5,10 @@ export default function Result({ data, stale }: { data: AnalyzeResponse | null; 
   if (!data || data.status === 'empty') {
     return (
       <div className="res res-empty">
-        <p className="res-title">Введите описание товара</p>
-        <p className="muted">Укажите название и ключевые характеристики через запятую, например:</p>
+        <p className="res-title">Здесь появится код КТРУ</p>
+        <p className="muted">Опишите товар в поле слева: название и ключевые характеристики через запятую. Например:</p>
         <code className="example-code">молоток слесарный 500 г, длина рукоятки 300 мм</code>
-        <p className="muted">Поддерживаются категории: инструменты, мебель, одежда.</p>
+        <p className="muted">Пока работаем с тремя категориями: инструменты, мебель, одежда.</p>
       </div>
     );
   }
@@ -36,14 +36,14 @@ export default function Result({ data, stale }: { data: AnalyzeResponse | null; 
       <div className={cls}>
         <div className="res-head"><span className="res-ico" aria-hidden="true">?</span>
           <p className="res-title">Найдено {data.candidates_total} {plural(data.candidates_total)} — уточните данные</p></div>
-        <p>Однозначно определить код КТРУ пока нельзя. Выполните подсказки ниже или выберите позицию из списка кандидатов.</p>
+        <p>Описания не хватает для одного кода. Добавьте уточнения из блока «Что уточнить» слева или выберите подходящую позицию в списке кандидатов.</p>
       </div>
     );
   }
   return (
     <div className={cls}>
       <div className="res-head"><span className="res-ico" aria-hidden="true">×</span><p className="res-title">Подходящих позиций КТРУ не найдено</p></div>
-      <p>Проверьте название товара и значения характеристик, исправьте ошибки из списка слева.</p>
+      <p>Проверьте название товара и значения характеристик. Нажмите «Исправить» у подсказок слева или начните с названия, например «молоток слесарный».</p>
     </div>
   );
 }

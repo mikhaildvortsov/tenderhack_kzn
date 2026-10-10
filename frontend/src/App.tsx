@@ -11,6 +11,7 @@ import CharTable from './components/CharTable';
 import Candidates from './components/Candidates';
 import KtruModal from './components/KtruModal';
 import { Card } from './components/ui';
+import HowItWorks from './components/HowItWorks';
 
 const LOCAL_EXAMPLES: Example[] = [
   { category: 'Инструменты', text: 'Молоток слесарный 500 г, длина рукоятки 300 мм', note: '' },
@@ -19,7 +20,7 @@ const LOCAL_EXAMPLES: Example[] = [
 ];
 
 const BADGE = {
-  resolved: ['ok', 'Код определён'], ambiguous: ['warn', 'Неоднозначно'], not_found: ['err', 'Не найдено'], empty: ['muted', 'Ожидание ввода'],
+  resolved: ['ok', 'Код определён'], ambiguous: ['warn', 'Неоднозначно'], not_found: ['err', 'Не найдено'], empty: ['muted', 'Ждём описание'],
 } as const;
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
 
   return (
     <>
+      <a className="skip" href="#desc">Перейти к вводу описания</a>
       <Header />
       <main className="page" id="top">
         <nav aria-label="Хлебные крошки" className="crumbs">
@@ -55,29 +57,30 @@ export default function App() {
         <h1>Автозаполнение характеристик СТЕ по КТРУ</h1>
 
         {mode === 'mock' && (
-          <p className="alert alert-info" role="status">Демонстрационный режим: сервер анализа недоступен, показаны тестовые данные.</p>
+          <p className="alert alert-info" role="status">Демонстрационный режим: сервер анализа недоступен, поэтому показаны тестовые данные. Результаты не относятся к реальному справочнику КТРУ.</p>
         )}
         {error && (
           <div className="alert alert-err" role="alert">
-            <span>{error}</span>
-            <button type="button" className="btn btn-primary btn-sm" onClick={a.retry}>Повторить</button>
+            <span><strong>Не получилось обновить результат.</strong> {error}{data ? ' Ниже — последний успешный результат.' : ''}</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={a.retry}>Повторить попытку</button>
           </div>
         )}
 
         <div className="grid">
           <div className="col">
             <Card id="h-desc" title="Описание товара" aside={<span className={`badge badge-${status[0]}`} role="status" aria-live="polite">{status[1]}</span>}>
+              <HowItWorks />
               <label htmlFor="desc" className="lbl">Опишите товар своими словами</label>
               <Highlight value={state.text} data={data} onChange={(v) => a.setText(v)} />
               <div className="meta-row">
                 <p id="desc-help" className="muted small">
-                  <span className="lg lg-ok" /> распознано <span className="lg lg-fix" /> исправлено <span className="lg lg-err" /> ошибка
+                  Подсветка в тексте: <span className="lg lg-ok" aria-hidden="true" /> распознано <span className="lg lg-fix" aria-hidden="true" /> исправлено <span className="lg lg-err" aria-hidden="true" /> требует внимания
                 </p>
                 <p id="desc-count" className={`small ${len > 1800 ? 'warn-t' : 'muted'}`}>{len} / 2000</p>
               </div>
               <div className="examples">
-                <span className="muted small">Примеры:</span>
-                <div className="chips">
+                <span className="muted small" id="ex-l">Не знаете, с чего начать? Нажмите на пример:</span>
+                <div className="chips" role="group" aria-labelledby="ex-l">
                   {examples.map((e) => (
                     <button type="button" key={e.text} className="chip chip-btn" title={e.note || e.category} onClick={() => a.setText(e.text, true)}>{e.text}</button>
                   ))}
@@ -90,7 +93,7 @@ export default function App() {
 
           <div className="col">
             <Card id="h-res" title="Подбор кода КТРУ"
-              aside={loading && data ? <span className="spin" role="status" aria-label="Обновление результата" /> : null}>
+              aside={loading && data ? <span className="spin" role="status" aria-label="Обновляем результат" /> : null}>
               <Result data={data} stale={loading && !!data} />
             </Card>
             <Funnel steps={data?.narrowing ?? []} />
@@ -101,8 +104,8 @@ export default function App() {
         </div>
 
         <footer className="foot">
-          {data?.timings_ms.total != null && <span>Время ответа: {Math.round(data.timings_ms.total)} мс</span>}
-          <span>Подсказки носят рекомендательный характер; приоритетный источник — справочник КТРУ.</span>
+          {data?.timings_ms.total != null && <span>Анализ занял {Math.round(data.timings_ms.total)} мс</span>}
+          <span>Подсказки носят рекомендательный характер. Если сомневаетесь, ориентируйтесь на справочник КТРУ.</span>
         </footer>
       </main>
       {modal && <KtruModal code={modal} onClose={() => setModal(null)} />}

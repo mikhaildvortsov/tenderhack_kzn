@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 export function Info({ text, label = 'Пояснение' }: { text: string; label?: string }) {
+  const id = useId();
   return (
     <span className="tip">
-      <button type="button" className="tip-btn" aria-label={label} aria-describedby={undefined}>i</button>
-      <span role="tooltip" className="tip-body">{text}</span>
+      <button type="button" className="tip-btn" aria-label={label} aria-describedby={id}
+        onKeyDown={(e) => { if (e.key === 'Escape') (e.currentTarget as HTMLElement).blur(); }}>i</button>
+      <span role="tooltip" id={id} className="tip-body">{text}</span>
     </span>
   );
 }
@@ -28,7 +30,7 @@ export function CopyButton({ value, label = 'Копировать' }: { value: s
     }
     setDone(true); setTimeout(() => setDone(false), 1800);
   };
-  return <button type="button" className="btn btn-ghost btn-sm" onClick={copy}>{done ? 'Скопировано' : label}</button>;
+  return <><button type="button" className="btn btn-ghost btn-sm" onClick={copy}>{done ? 'Скопировано' : label}</button><span className="sr-only" role="status">{done ? 'Код скопирован в буфер обмена' : ''}</span></>;
 }
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`;

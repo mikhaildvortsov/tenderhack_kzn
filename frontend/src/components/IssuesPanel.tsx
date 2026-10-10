@@ -4,7 +4,7 @@ import { Card } from './ui';
 
 const TYPE_LABEL: Record<Issue['type'], string> = {
   typo: 'Опечатка', layout: 'Раскладка', unit_mismatch: 'Единица измерения', value_not_allowed: 'Недопустимое значение',
-  out_of_range: 'Вне диапазона', missing_required: 'Нет обязательной', contradiction: 'Противоречие',
+  out_of_range: 'Вне диапазона', missing_required: 'Не хватает данных', contradiction: 'Противоречие',
   unknown_characteristic: 'Неизвестная характеристика', category_mismatch: 'Категория',
 };
 const SEV_LABEL = { error: 'Ошибка', warning: 'Предупреждение', info: 'Подсказка' } as const;
@@ -26,7 +26,7 @@ function IssueItem({ issue, onFix, onIgnore }: { issue: Issue; onFix: (i: Issue)
         <p className="issue-msg">{issue.message}</p>
         {issue.span && <p className="issue-frag">Фрагмент: <code>{issue.span.text}</code></p>}
         <button type="button" className="linkbtn" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Скрыть' : 'Почему?'}
+          {open ? 'Скрыть пояснение' : 'Почему так?'}
         </button>
         {open && <p className="issue-reason">{issue.reason}</p>}
         <div className="issue-actions">
@@ -35,7 +35,7 @@ function IssueItem({ issue, onFix, onIgnore }: { issue: Issue; onFix: (i: Issue)
               {issue.suggestion.label || 'Исправить'}
             </button>
           )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onIgnore(issue.id)}>Игнорировать</button>
+          <button type="button" className="btn btn-ghost btn-sm" title="Скрыть эту подсказку" onClick={() => onIgnore(issue.id)}>Пропустить</button>
         </div>
       </div>
     </li>
@@ -59,11 +59,11 @@ export default function IssuesPanel({ data, text, onReplace, onIgnore, onAppend 
   };
   const count = issues.length;
   return (
-    <Card id="h-issues" title="Ошибки и подсказки" aside={count ? <span className="count-badge" aria-label={`Найдено: ${count}`}>{count}</span> : null}>
+    <Card id="h-issues" title="Ошибки и подсказки" aside={count ? <span className="count-badge" aria-label={`Найдено подсказок: ${count}`}>{count}</span> : null}>
       {data && count === 0 && recs.length === 0 && (
-        <p className="ok-note"><span className="sev sev-ok" aria-hidden="true">✓</span> Ошибок не найдено. Описание согласуется со справочником КТРУ.</p>
+        <p className="ok-note"><span className="sev sev-ok" aria-hidden="true">✓</span> Всё в порядке: ошибок не найдено, описание согласуется со справочником КТРУ.</p>
       )}
-      {!data && <p className="muted">Подсказки появятся после ввода описания.</p>}
+      {!data && <p className="muted">Здесь появятся опечатки, неверные единицы и недостающие характеристики — с кнопкой быстрого исправления.</p>}
       {count > 0 && (
         <ul className="issues">{issues.map((i) => <IssueItem key={i.id} issue={i} onFix={fix} onIgnore={onIgnore} />)}</ul>
       )}
@@ -73,7 +73,7 @@ export default function IssuesPanel({ data, text, onReplace, onIgnore, onAppend 
           {recs.map((r) => (
             <div className="rec" key={r.id}>
               <p className="rec-msg"><strong>{r.message}</strong>
-                {r.expected_remaining != null && <span className="muted"> — останется позиций: {r.expected_remaining}</span>}
+                {r.expected_remaining != null && <span className="muted"> — останется вариантов: {r.expected_remaining}</span>}
               </p>
               {r.options.length > 0 && (
                 <div className="chips" role="group" aria-label={`Варианты: ${r.message}`}>

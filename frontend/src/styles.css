@@ -169,3 +169,29 @@ a { color: var(--link); }
   .alert { flex-direction: column; align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* UI audit: a11y, onboarding, touch targets */
+:root { --text-2: #596070; }
+.skip { position: absolute; left: 8px; top: -48px; background: #fff; color: var(--link); padding: 8px 12px; border-radius: 4px; z-index: 100; border: 1px solid var(--link); }
+.skip:focus { top: 8px; }
+.menu-i { opacity: 1; color: var(--text-2); } .menu-i.active { color: var(--text); }
+.btn { min-height: 36px; } .btn-sm { min-height: 32px; }
+.btn:focus-visible, .chip-btn:focus-visible, .cand:focus-visible, .tip-btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.linkbtn { min-height: 24px; }
+.how { background: var(--info-bg); border: 1px solid #c4d3ec; border-radius: var(--r); padding: 10px 12px; margin-bottom: 14px; }
+.how ol { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 6px; }
+.how li { display: flex; gap: 8px; align-items: flex-start; }
+.how li div { display: block; font-size: 12.5px; line-height: 1.35; gap: 2px; } .how li span:not(.how-n) { color: var(--text-2); } .how li strong { margin-right: 6px; }
+.how-n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--red); color: #fff; font-weight: 500; font-size: 12px; display: grid; place-items: center; }
+.how .linkbtn.small { display: inline; }
+.how-show { margin-bottom: 8px; }
+.tbl thead th .tip { margin-left: 4px; vertical-align: middle; }
+.tbl thead th .tip-body { text-transform: none; font-weight: 400; white-space: normal; left: auto; right: -8px; }
+abbr[title] { text-decoration: none; }
+@media (max-width: 600px) {
+  .btn, .btn-sm { min-height: 44px; padding: 8px 14px; } .chip-btn { min-height: 36px; padding: 6px 12px; }
+  .linkbtn { min-height: 32px; } .tip-btn { width: 28px; height: 28px; } .cell-in { min-height: 44px; font-size: 16px; }
+  .how ol { grid-template-columns: 1fr; } .portal-h-in { gap: 12px; } .page { padding: 12px 12px 24px; }
+  .meta-row { flex-direction: column; } .cand-top { flex-wrap: wrap; } .conf { min-width: 0; }
+  .tip-body { right: auto; left: 0; }
+}

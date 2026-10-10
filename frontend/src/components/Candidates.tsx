@@ -10,14 +10,14 @@ export default function Candidates({ items, total, selected, finalCode, onPick, 
   return (
     <Card id="h-cand" title="Кандидаты КТРУ"
       aside={<span className="muted small">{items.length ? `показано ${items.length} из ${total}` : ''}</span>}>
-      {items.length === 0 ? <p className="muted">Список кандидатов появится после анализа.</p> : (
+      {items.length === 0 ? <p className="muted">Здесь появятся подходящие позиции КТРУ. Нажмите на позицию, чтобы увидеть её характеристики.</p> : (
         <>
           <ul className="cands">
             {items.map((c) => (
               <li key={c.code}>
                 <button type="button" className={`cand${selected === c.code ? ' sel' : ''}${finalCode === c.code ? ' fin' : ''}`}
                   aria-pressed={selected === c.code} onClick={() => onPick(c)}>
-                  <span className="cand-top"><code>{c.code}</code><span className="cand-m">{c.matched_chars}/{c.total_chars} хар-к</span></span>
+                  <span className="cand-top"><code>{c.code}</code><span className="cand-m">{c.matched_chars}/{c.total_chars} характеристик</span></span>
                   <span className="cand-name">{c.name}</span>
                   <span className="cand-bar" role="img" aria-label={`Релевантность ${pct(c.score)}`}><span style={{ width: pct(Math.min(1, c.score)) }} /></span>
                   <span className="cand-sc">{pct(c.score)}</span>
@@ -25,7 +25,7 @@ export default function Candidates({ items, total, selected, finalCode, onPick, 
               </li>
             ))}
           </ul>
-          {selected && <button type="button" className="linkbtn" onClick={onClear}>Сбросить ручной выбор</button>}
+          {selected && <button type="button" className="linkbtn" onClick={onClear}>Отменить ручной выбор</button>}
         </>
       )}
     </Card>

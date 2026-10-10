@@ -3,8 +3,8 @@ import type { CharStatus, ExtractedCharacteristic } from '../api/types';
 import { Card, Info, pct } from './ui';
 
 const ST: Record<CharStatus, { t: string; c: string }> = {
-  ok: { t: 'OK', c: 'ok' }, corrected: { t: 'Исправлено', c: 'warn' }, error: { t: 'Ошибка', c: 'err' },
-  missing: { t: 'Не указана', c: 'muted' }, suggested: { t: 'Предложено', c: 'info' },
+  ok: { t: 'Распознано', c: 'ok' }, corrected: { t: 'Исправлено', c: 'warn' }, error: { t: 'Ошибка', c: 'err' },
+  missing: { t: 'Не указано', c: 'muted' }, suggested: { t: 'Предложено', c: 'info' },
 };
 
 function ValueCell({ c, onCommit }: { c: ExtractedCharacteristic; onCommit: (c: ExtractedCharacteristic, v: string) => void }) {
@@ -40,12 +40,12 @@ interface Props {
 
 export default function CharTable({ items, onEdit, onReset, overridden }: Props) {
   return (
-    <Card id="h-chars" title="Характеристики">
-      {items.length === 0 ? <p className="muted">Характеристики появятся после распознавания товара.</p> : (
+    <Card id="h-chars" title="Характеристики" aside={items.length ? <span className="muted small">Значения можно править</span> : null}>
+      {items.length === 0 ? <p className="muted">Характеристики, значения и единицы измерения появятся, как только система узнает товар. Их можно будет поправить прямо в таблице.</p> : (
         <div className="table-wrap">
           <table className="tbl">
             <thead>
-              <tr><th scope="col">Характеристика</th><th scope="col">Значение</th><th scope="col">Ед.</th><th scope="col">Статус</th><th scope="col">Уверенность</th></tr>
+              <tr><th scope="col">Характеристика</th><th scope="col">Значение</th><th scope="col"><abbr title="Единица измерения">Ед. изм.</abbr></th><th scope="col">Статус</th><th scope="col">Точность <Info text="Насколько система уверена в найденном значении. Значения с низкой точностью проверьте вручную." label="Что такое точность распознавания" /></th></tr>
             </thead>
             <tbody>
               {items.map((c) => {
@@ -61,13 +61,13 @@ export default function CharTable({ items, onEdit, onReset, overridden }: Props)
                     </th>
                     <td data-label="Значение">
                       <ValueCell c={c} onCommit={onEdit} />
-                      {overridden.has(c.name) && <button type="button" className="linkbtn small" onClick={() => onReset(c.name)}>сбросить правку</button>}
+                      {overridden.has(c.name) && <button type="button" className="linkbtn small" onClick={() => onReset(c.name)}>вернуть значение системы</button>}
                     </td>
-                    <td data-label="Ед." className="unit">{c.unit ?? '—'}</td>
+                    <td data-label="Ед. изм." className="unit">{c.unit ?? '—'}</td>
                     <td data-label="Статус"><span className={`badge badge-${s.c}`}>{s.t}</span></td>
-                    <td data-label="Уверенность">
+                    <td data-label="Точность">
                       <div className="conf">
-                        <div className="conf-bar" role="img" aria-label={`Уверенность ${pct(c.confidence)}`}>
+                        <div className="conf-bar" role="img" aria-label={`Точность ${pct(c.confidence)}`}>
                           <div className={`conf-fill ${c.confidence >= 0.8 ? 'hi' : c.confidence >= 0.5 ? 'mid' : 'lo'}`} style={{ width: pct(c.confidence) }} />
                         </div>
                         <span className="conf-n">{pct(c.confidence)}</span>

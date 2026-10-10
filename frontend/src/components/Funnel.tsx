@@ -9,7 +9,7 @@ export default function Funnel({ steps }: { steps: NarrowingStep[] }) {
   const total = steps[0]?.before || 1;
   return (
     <Card id="h-funnel" title="Сужение кодов КТРУ">
-      {steps.length === 0 ? <p className="muted">Здесь появится воронка: как от всего справочника мы приходим к нескольким позициям.</p> : (
+      {steps.length === 0 ? <p className="muted">Здесь появится пошаговое сужение: как от всего справочника КТРУ мы приходим к нескольким позициям.</p> : (
         <ol className="funnel">
           {steps.map((s, i) => {
             const w = Math.max(2, (s.after / total) * 100);
@@ -29,7 +29,7 @@ export default function Funnel({ steps }: { steps: NarrowingStep[] }) {
                   </div>
                   {s.excluded_sample.length > 0 && (
                     <div className="f-pop" role="tooltip">
-                      <strong>Исключены, например:</strong>
+                      <strong>Отсеяны, например:</strong>
                       {s.excluded_sample.map((c) => <code key={c}>{c}</code>)}
                     </div>
                   )}
